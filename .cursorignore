@@ -1,0 +1,3 @@
+# Скрыть от AI, но показать в IDE
+.env
+!.env.example
