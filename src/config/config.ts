@@ -25,6 +25,31 @@ export const WB_CONTENT_API_BASE_URL = 'https://content-api.wildberries.ru';
 export const WB_MARKETPLACE_API_BASE_URL = 'https://marketplace-api.wildberries.ru';
 
 /**
+ * Базовый URL для рекламы
+ */
+export const WB_ADV_API_BASE_URL = 'https://advert-api.wildberries.ru';
+
+/**
+ * Базовый URL для отзывов
+ */
+export const WB_FEEDBACK_API_BASE_URL = 'https://feedbacks-api.wildberries.ru';
+
+/**
+ * Базовый URL для новой аналитики
+ */
+export const WB_ANALYTICS_NEW_API_BASE_URL = 'https://seller-analytics-api.wildberries.ru';
+
+/**
+ * Базовый URL для документов
+ */
+export const WB_DOCUMENTS_API_BASE_URL = 'https://documents-api.wildberries.ru';
+
+/**
+ * Базовый URL для скидок и цен
+ */
+export const WB_DISCOUNTS_API_BASE_URL = 'https://discounts-prices-api.wildberries.ru';
+
+/**
  * Конфигурация rate limiting
  */
 export const RATE_LIMIT_CONFIG = {
@@ -62,6 +87,11 @@ export const config = {
   statisticsApiBaseUrl: WB_STATISTICS_API_BASE_URL,
   contentApiBaseUrl: WB_CONTENT_API_BASE_URL,
   marketplaceApiBaseUrl: WB_MARKETPLACE_API_BASE_URL,
+  advApiBaseUrl: WB_ADV_API_BASE_URL,
+  feedbackApiBaseUrl: WB_FEEDBACK_API_BASE_URL,
+  analyticsNewApiBaseUrl: WB_ANALYTICS_NEW_API_BASE_URL,
+  documentsApiBaseUrl: WB_DOCUMENTS_API_BASE_URL,
+  discountsApiBaseUrl: WB_DISCOUNTS_API_BASE_URL,
   rateLimit: RATE_LIMIT_CONFIG,
   retry: RETRY_CONFIG,
   timeout: TIMEOUT_CONFIG,

@@ -205,3 +205,28 @@ export const wbContentClient = new WildberriesClient(
 export const wbMarketplaceClient = new WildberriesClient(
   config.marketplaceApiBaseUrl
 );
+
+/**
+ * Клиент для рекламы
+ */
+export const wbAdvClient = new WildberriesClient(config.advApiBaseUrl);
+
+/**
+ * Клиент для отзывов
+ */
+export const wbFeedbackClient = new WildberriesClient(config.feedbackApiBaseUrl);
+
+/**
+ * Клиент для новой аналитики
+ */
+export const wbAnalyticsNewClient = new WildberriesClient(config.analyticsNewApiBaseUrl);
+
+/**
+ * Клиент для документов
+ */
+export const wbDocumentsClient = new WildberriesClient(config.documentsApiBaseUrl);
+
+/**
+ * Клиент для скидок и цен
+ */
+export const wbDiscountsClient = new WildberriesClient(config.discountsApiBaseUrl);
