@@ -1,142 +1,168 @@
 #!/usr/bin/env node
 
 /**
- * Точка входа MCP сервера для Wildberries API
+ * Точка входа MCP сервера для Wildberries API.
+ * Поддерживает два транспорта: stdio (default) и HTTP (MCP_TRANSPORT=http).
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 
 import { allTools, getHandler } from './tools/index.js';
 import { logger } from './utils/logger.js';
 import { config } from './config/config.js';
 
 /**
- * Создание и настройка MCP сервера
+ * Создание и настройка MCP сервера (transport-agnostic)
+ */
+function createMcpServer(): Server {
+  const server = new Server(
+    {
+      name: 'wildberries-mcp-server',
+      version: '0.1.0',
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    logger.debug('Listing tools', { count: allTools.length });
+    return {
+      tools: allTools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      })),
+    };
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request: any): Promise<any> => {
+    const { name, arguments: args } = request.params;
+    logger.info('Tool called', { name, args });
+
+    try {
+      const handler = getHandler(name);
+      if (!handler) {
+        const errorMsg = `Unknown tool: ${name}`;
+        logger.error(errorMsg);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMsg }, null, 2) }],
+          isError: true,
+        };
+      }
+
+      const result = await handler(args || {});
+      logger.info('Tool executed successfully', { name });
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('Tool execution failed', { name, error: errorMsg });
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMsg, tool: name }, null, 2) }],
+        isError: true,
+      };
+    }
+  });
+
+  return server;
+}
+
+/**
+ * Запуск в режиме stdio (default)
+ */
+async function startStdio() {
+  const server = createMcpServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+
+  logger.info('Wildberries MCP Server started (stdio)', { toolsCount: allTools.length });
+
+  const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
+  signals.forEach((signal) => {
+    process.on(signal, async () => {
+      logger.info('Shutting down', { signal });
+      await server.close();
+      process.exit(0);
+    });
+  });
+}
+
+/**
+ * Запуск в режиме HTTP (stateless, для Docker)
+ */
+async function startHttp() {
+  const port = parseInt(process.env['MCP_PORT'] || '8080', 10);
+
+  const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    const url = req.url || '/';
+
+    // Health check
+    if (url === '/health' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', service: 'wildberries-mcp' }));
+      return;
+    }
+
+    // MCP endpoint
+    if (url === '/mcp' || url === '/mcp/') {
+      const server = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+      return;
+    }
+
+    res.writeHead(404);
+    res.end('Not Found');
+  });
+
+  httpServer.listen(port, '0.0.0.0', () => {
+    logger.info(`Wildberries MCP Server started (HTTP) on port ${port}`, {
+      toolsCount: allTools.length,
+    });
+  });
+
+  const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
+  signals.forEach((signal) => {
+    process.on(signal, () => {
+      logger.info('Shutting down', { signal });
+      httpServer.close();
+      process.exit(0);
+    });
+  });
+}
+
+/**
+ * Точка входа
  */
 async function main() {
   try {
     logger.info('Starting Wildberries MCP Server', {
       version: '0.1.0',
       nodeEnv: config.nodeEnv,
+      transport: process.env['MCP_TRANSPORT'] || 'stdio',
     });
 
-    // Создаём MCP сервер
-    const server = new Server(
-      {
-        name: 'wildberries-mcp-server',
-        version: '0.1.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-
-    /**
-     * Обработчик запроса списка инструментов
-     */
-    server.setRequestHandler(ListToolsRequestSchema, async () => {
-      logger.debug('Listing tools', { count: allTools.length });
-      
-      return {
-        tools: allTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: tool.inputSchema,
-        })),
-      };
-    });
-
-    /**
-     * Обработчик вызова инструмента
-     */
-    server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-
-      logger.info('Tool called', { name, args });
-
-      try {
-        // Получаем обработчик инструмента
-        const handler = getHandler(name);
-
-        if (!handler) {
-          const errorMsg = `Unknown tool: ${name}`;
-          logger.error(errorMsg);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify({ error: errorMsg }, null, 2),
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        // Выполняем обработчик
-        const result = await handler(args || {});
-
-        logger.info('Tool executed successfully', { name });
-
-        return result;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error('Tool execution failed', {
-          name,
-          error: errorMsg,
-        });
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  error: errorMsg,
-                  tool: name,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-    });
-
-    // Создаём stdio transport
-    const transport = new StdioServerTransport();
-
-    // Подключаем transport к серверу
-    await server.connect(transport);
-
-    logger.info('Wildberries MCP Server started successfully', {
-      toolsCount: allTools.length,
-    });
-
-    // Обработка сигналов завершения
-    const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
-    signals.forEach((signal) => {
-      process.on(signal, async () => {
-        logger.info('Shutting down Wildberries MCP Server', { signal });
-        await server.close();
-        process.exit(0);
-      });
-    });
+    if (process.env['MCP_TRANSPORT'] === 'http') {
+      await startHttp();
+    } else {
+      await startStdio();
+    }
   } catch (error) {
     logger.error('Failed to start MCP Server', { error });
     process.exit(1);
   }
 }
 
-// Запуск сервера
 main().catch((error) => {
   logger.error('Unhandled error in main', { error });
   process.exit(1);

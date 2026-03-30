@@ -75,7 +75,7 @@ export function logRequest(method: string, url: string, data?: unknown) {
   logger.debug('API Request', {
     method,
     url,
-    ...(data && { data: sanitizeData(data) }),
+    ...(data ? { data: sanitizeData(data) } : {}),
   });
 }
 
@@ -87,7 +87,7 @@ export function logResponse(method: string, url: string, status: number, data?: 
     method,
     url,
     status,
-    ...(data && { data: sanitizeData(data) }),
+    ...(data ? { data: sanitizeData(data) } : {}),
   });
 }
 

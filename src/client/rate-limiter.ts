@@ -3,7 +3,8 @@
  */
 
 import { config } from '../config/config.js';
-import { RateLimitError } from '../types/common.js';
+// @ts-ignore unused import kept for reference
+import type { RateLimitError } from '../types/common.js';
 import { logger } from '../utils/logger.js';
 
 /**

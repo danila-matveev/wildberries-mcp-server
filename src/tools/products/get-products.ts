@@ -63,7 +63,7 @@ export const getProductsHandler: ToolHandler = async (params) => {
     // Формируем параметры запроса
     const queryParams: Products.GetProductsParams = {
       limit: validatedParams.limit,
-      offset: validatedParams.offset,
+      offset: validatedParams.offset ?? 0,
       ...(validatedParams.search && { search: validatedParams.search }),
       ...(validatedParams.brandID && { brandID: validatedParams.brandID }),
       ...(validatedParams.updatedAtFrom && { updatedAtFrom: validatedParams.updatedAtFrom }),
@@ -88,8 +88,8 @@ export const getProductsHandler: ToolHandler = async (params) => {
     return formatList(products, {
       total,
       limit: validatedParams.limit,
-      offset: validatedParams.offset,
-      hasMore: total ? validatedParams.offset + products.length < total : false,
+      offset: validatedParams.offset ?? 0,
+      hasMore: total ? (validatedParams.offset ?? 0) + products.length < total : false,
     });
   } catch (error) {
     logger.error('Failed to get products', { error });
